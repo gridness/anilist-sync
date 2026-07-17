@@ -1,0 +1,11 @@
+{
+  "name": "anilist-sync",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "iina-plugin-definition": "0.99.4"
+  }
+}

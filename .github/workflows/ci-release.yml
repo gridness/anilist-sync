@@ -1,0 +1,120 @@
+name: CI and release
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/index.js
+          node --check src/global.js
+          node --check src/anilist.js
+          node --check ui/sidebar/index.js
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for distributable changes
+        id: changes
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$BEFORE" =~ ^0+$ ]] || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+            Info.json LICENSE THIRD_PARTY_NOTICES.md src ui vendor; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Choose release version
+        if: steps.changes.outputs.release == 'true'
+        id: version
+        run: |
+          latest="$(gh release view --json tagName --jq .tagName 2>/dev/null || true)"
+          if [[ "$latest" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="$((10#${BASH_REMATCH[3]} + 1))"
+            version="$major.$minor.$patch"
+          else
+            version="$(jq -r .version Info.json)"
+            IFS=. read -r major minor patch <<< "$version"
+          fi
+          gh_version="$((10#$major * 1000000 + 10#$minor * 1000 + 10#$patch))"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "gh_version=$gh_version" >> "$GITHUB_OUTPUT"
+
+      - name: Build IINA plugin archive
+        if: steps.changes.outputs.release == 'true'
+        env:
+          ANILIST_CLIENT_ID: ${{ vars.ANILIST_CLIENT_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_VERSION: ${{ steps.version.outputs.gh_version }}
+        run: |
+          if [[ -z "$ANILIST_CLIENT_ID" ]]; then
+            echo "Repository variable ANILIST_CLIENT_ID is required" >&2
+            exit 1
+          fi
+          mkdir dist
+          cp -R src ui vendor LICENSE THIRD_PARTY_NOTICES.md dist/
+          jq \
+            --arg version "$VERSION" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg client "$ANILIST_CLIENT_ID" \
+            --argjson ghVersion "$GH_VERSION" \
+            '.version = $version | .ghRepo = $repo | .ghVersion = $ghVersion | .preferenceDefaults.anilistClientId = $client' \
+            Info.json > dist/Info.json
+          (cd dist && zip -q -r "../AniList-Sync-v$VERSION.iinaplgz" .)
+
+      - name: Create GitHub release
+        if: steps.changes.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" "AniList-Sync-v$VERSION.iinaplgz" \
+            --target "$GITHUB_SHA" \
+            --title "AniList Sync v$VERSION" \
+            --generate-notes
+
+      - name: Mirror packaged plugin to master
+        if: steps.changes.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          MIRROR: ${{ runner.temp }}/anilist-sync-master
+        run: |
+          git worktree add --detach "$MIRROR" "$GITHUB_SHA"
+          git -C "$MIRROR" switch --orphan "release-mirror-$GITHUB_RUN_ID"
+          cp -R dist/. "$MIRROR/"
+          git -C "$MIRROR" add --all
+          git -C "$MIRROR" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            commit -m "Release AniList Sync v$VERSION"
+          git -C "$MIRROR" push --force origin HEAD:refs/heads/master
+
+      - name: Clean release worktree
+        if: always() && steps.changes.outputs.release == 'true'
+        env:
+          MIRROR: ${{ runner.temp }}/anilist-sync-master
+        run: git worktree remove --force "$MIRROR" || true
