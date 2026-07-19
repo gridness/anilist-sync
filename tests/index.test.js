@@ -5,6 +5,8 @@ test("player adapter tracks only local video and never sends its path", (t) => {
   const events = {};
   const sidebarMessages = {};
   const sent = [];
+  const confirmations = [];
+  let confirmed = false;
   let timerTick;
   t.mock.method(global, "setInterval", (callback) => {
     timerTick = callback;
@@ -48,6 +50,12 @@ test("player adapter tracks only local video and never sends its path", (t) => {
       postMessage() {},
       onMessage: (name, callback) => (sidebarMessages[name] = callback),
     },
+    utils: {
+      ask(message) {
+        confirmations.push(message);
+        return confirmed;
+      },
+    },
   };
 
   const path = require.resolve("../src/index.js");
@@ -57,6 +65,12 @@ test("player adapter tracks only local video and never sends its path", (t) => {
   events["iina.window-loaded"]();
   assert.equal(typeof sidebarMessages.command, "function");
   assert.equal(sent[0].data.action, "request-state");
+  sidebarMessages.command({ action: "reset", confirmation: "Reset everything?" });
+  assert.deepEqual(confirmations, ["Reset everything?"]);
+  assert.equal(sent.some((item) => item.data.action === "reset"), false);
+  confirmed = true;
+  sidebarMessages.command({ action: "reset", confirmation: "Reset everything?" });
+  assert.deepEqual(sent.at(-1).data, { action: "reset" });
   events["iina.file-started"]();
 
   const session = sent.find((item) => item.data.action === "session").data.session;

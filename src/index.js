@@ -7,6 +7,7 @@ const {
   menu,
   preferences,
   sidebar,
+  utils,
 } = iina;
 
 const minimumVersion = [1, 4, 0];
@@ -34,12 +35,14 @@ const runtime = {
   snapshot: "",
   state: null,
   updateUI,
+  utils,
 };
 
 runtime.openItem = menu.item("Open AniList Sync", () => runtime.sidebar.show());
 menu.addItem(runtime.openItem);
 
-function send(runtime, action) {
+function send(runtime, { confirmation, ...action }) {
+  if (confirmation && !runtime.utils.ask(confirmation)) return;
   runtime.globalAPI.postMessage("anilist-sync", action);
 }
 

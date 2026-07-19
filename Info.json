@@ -10,7 +10,7 @@
   "globalEntry": "src/global.js",
   "ghRepo": "OWNER/REPOSITORY",
   "ghVersion": 1000000,
-  "permissions": ["network-request", "show-osd"],
+  "permissions": ["network-request", "show-alert", "show-osd"],
   "allowedDomains": ["graphql.anilist.co"],
   "sidebarTab": {
     "name": "AniList Sync"

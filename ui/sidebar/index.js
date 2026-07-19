@@ -87,7 +87,7 @@ function renderAccount() {
       node("div", { className: "row spread" }, [
         node("strong", { text: state.account?.name || "AniList user" }),
         button("Disconnect", () => {
-          if (confirm("Disconnect AniList? Pending items will stay on this Mac.")) send({ action: "disconnect" });
+          send({ action: "disconnect", confirmation: "Disconnect AniList? Pending items will stay on this Mac." });
         }),
       ]),
     ]);
@@ -117,6 +117,7 @@ function renderMatcher() {
   const matched = new Set(state.matches.map((item) => item.seriesKey));
   const ignored = new Set(state.ignored.map((item) => item.seriesKey));
   const unmatched = [...series.keys()].filter((key) => !matched.has(key) && !ignored.has(key));
+  if (ignored.has(selectedKey)) rematching = false;
   if (!rematching && matched.has(selectedKey)) selectedKey = unmatched[0] || "";
   if (!selectedKey || (!series.has(selectedKey) && !matched.has(selectedKey))) selectedKey = unmatched[0] || "";
   if (!selectedKey) return null;
@@ -143,10 +144,7 @@ function renderMatcher() {
     node("div", { className: "row" }, [
       button("Search", () => send({ action: "search", seriesKey: selectedKey, query: search.value }), "primary", search.value.trim().length < 2),
       button("Ignore this series", () => {
-        if (confirm("Ignore this series and discard its pending items?")) {
-          rematching = false;
-          send({ action: "ignore", seriesKey: selectedKey, title: source?.searchTitle || selectedKey });
-        }
+        send({ action: "ignore", seriesKey: selectedKey, title: source?.searchTitle || selectedKey, confirmation: "Ignore this series and discard its pending items?" });
       }),
     ]),
     node("label", {}, [
@@ -210,7 +208,7 @@ function renderPending() {
         node("div", { className: "row" }, [
           item.error ? button("Retry", () => send({ action: "retry" })) : null,
           item.correctionId ? null : button("Discard", () => {
-            if (confirm("Discard this pending sync?")) send({ action: "discard", id: item.id });
+            send({ action: "discard", id: item.id, confirmation: "Discard this pending sync?" });
           }),
         ]),
       ]);
@@ -238,7 +236,7 @@ function renderConfirmations() {
       node("div", { className: "row" }, [
         button("Apply change", () => send({ action: "confirm-sync", seriesKey: item.seriesKey, fingerprint: item.fingerprint }), "primary"),
         button("Discard", () => {
-          if (confirm("Discard these pending episodes?")) send({ action: "discard", ids: item.run.ids });
+          send({ action: "discard", ids: item.run.ids, confirmation: "Discard these pending episodes?" });
         }),
       ]),
     ], "error")),
@@ -325,7 +323,7 @@ function renderHistory() {
   return card([
     details,
     button("Clear sync history", () => {
-      if (confirm("Clear completed sync records? Pending syncs will remain.")) send({ action: "clear-history" });
+      send({ action: "clear-history", confirmation: "Clear completed sync records? Pending syncs will remain." });
     }, "", state.corrections.length > 0),
     state.corrections.length ? node("small", { text: "Resolve past progress first; its sync records are needed for safe correction." }) : null,
   ]);
@@ -333,6 +331,9 @@ function renderHistory() {
 
 function render() {
   if (!state) return;
+  const active = document.activeElement;
+  const focusedSeries = active?.type === "search" ? selectedKey : "";
+  const selection = focusedSeries ? [active.selectionStart, active.selectionEnd] : null;
   app.replaceChildren();
   app.append(
     node("div", { className: "row spread" }, [node("h1", { text: "AniList Sync" }), node("span", { className: "pill", text: state.connected ? "Online" : "Offline" })]),
@@ -354,9 +355,14 @@ function render() {
     heading("Reset"),
     node("p", { className: "muted", text: "Clears the Keychain token value, account, matches, ignored titles, pending work, confirmations, corrections, and sync history." }),
     button("Full reset", () => {
-      if (confirm("Completely reset AniList Sync on this Mac? This cannot be undone.")) send({ action: "reset" });
+      send({ action: "reset", confirmation: "Completely reset AniList Sync on this Mac? This cannot be undone." });
     }, "danger"),
   ]));
+  if (selection && focusedSeries === selectedKey) {
+    const search = app.querySelector('input[type="search"]');
+    search?.focus();
+    search?.setSelectionRange(...selection);
+  }
 }
 
 iina.onMessage("state", (nextState) => {
