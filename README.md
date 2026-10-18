@@ -8,6 +8,8 @@ AniList Sync marks anime episodes on your AniList account after a local video re
 - An AniList account
 - Local video playback; web URLs are ignored
 
+IINA 1.5.0 compatibility checks cover playback event ordering, module startup, HTTP request encoding, Keychain method lookup, and plugin packaging.
+
 ## Install and connect
 
 Open the latest `.iinaplgz` release with IINA, or install the GitHub repository from IINA's plugin settings. Open **Plugin → AniList Sync → Open AniList Sync**, choose **Open AniList authorization**, approve access, and paste the token AniList shows.
@@ -18,7 +20,7 @@ The release workflow requires an AniList OAuth client ID in the repository varia
 https://anilist.co/api/v2/oauth/pin
 ```
 
-Source checkouts deliberately contain no client ID. To test a local checkout, put your own public client ID in `Info.json` under `preferenceDefaults.anilistClientId`, then link the directory:
+Source checkouts include the public AniList client ID. To use a different OAuth client, change `preferenceDefaults.anilistClientId` in `Info.json`, then link the directory:
 
 ```sh
 iina-plugin link .
@@ -56,7 +58,7 @@ node --check src/global.js
 
 Architecture decisions and the domain language are in [`docs/adr`](docs/adr) and [`CONTEXT.md`](CONTEXT.md).
 
-On a distributable merge to `main`, GitHub Actions runs the tests, increments the patch and `ghVersion`, publishes the `.iinaplgz`, and force-updates the generated `master` compatibility mirror. Set `ANILIST_CLIENT_ID` as a repository variable, allow the workflow to write repository contents, and do not protect `master` against that force-push. Documentation-only merges run CI without a release.
+On a distributable merge to `main`, GitHub Actions runs the tests, increments the patch and `ghVersion`, and publishes the `.iinaplgz`. It then commits the released metadata to `main` for IINA 1.5.0 update checks and force-updates the generated `master` compatibility mirror for older IINA versions. Set `ANILIST_CLIENT_ID` as a repository variable, allow the workflow to write repository contents and push metadata commits to `main`, and do not protect `master` against that force-push. Documentation-only merges run CI without a release.
 
 ## License
 

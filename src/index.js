@@ -22,6 +22,7 @@ const runtime = {
   core,
   currentVersion,
   evaluate,
+  fileLoaded: false,
   globalAPI,
   isWatched,
   menu,
@@ -91,7 +92,7 @@ function endSession(runtime) {
 
 function detectFile(runtime) {
   endSession(runtime);
-  if (!runtime.compatible || runtime.core.status.idle || runtime.core.status.isNetworkResource) return;
+  if (!runtime.fileLoaded || !runtime.compatible || runtime.core.status.idle || runtime.core.status.isNetworkResource) return;
   if (!runtime.core.video.tracks.length && !runtime.core.status.videoWidth) return;
   const parsed = runtime.parsePlayback(runtime.core.status.url);
   if (!parsed) return;
@@ -135,16 +136,27 @@ event.on("iina.window-loaded", () => {
   }, 250);
   runtime.pollTimer.unref?.();
 });
-event.on("iina.file-loaded", () => endSession(runtime));
-event.on("iina.file-started", () => detectFile(runtime));
+// ASVS 2.3.1: wait for loaded metadata before evaluating a new file's progress.
+event.on("iina.file-started", () => {
+  runtime.fileLoaded = false;
+  endSession(runtime);
+});
+event.on("iina.file-loaded", () => {
+  runtime.fileLoaded = true;
+  detectFile(runtime);
+});
 event.on("mpv.duration.changed", () => {
   if (!runtime.session) detectFile(runtime);
   evaluate(runtime);
 });
 event.on("mpv.time-pos.changed", () => evaluate(runtime));
 event.on("mpv.pause.changed", () => evaluate(runtime));
-event.on("mpv.end-file", () => endSession(runtime));
+event.on("mpv.end-file", () => {
+  runtime.fileLoaded = false;
+  endSession(runtime);
+});
 event.on("iina.window-will-close", () => {
+  runtime.fileLoaded = false;
   if (runtime.pollTimer) clearInterval(runtime.pollTimer);
   endSession(runtime);
 });

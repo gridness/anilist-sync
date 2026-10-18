@@ -43,7 +43,8 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           if [[ "$BEFORE" =~ ^0+$ ]] || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
-            Info.json LICENSE THIRD_PARTY_NOTICES.md src ui vendor; then
+            Info.json LICENSE THIRD_PARTY_NOTICES.md src ui vendor \
+            .github/workflows/ci-release.yml scripts/publish-release-metadata.sh; then
             echo "release=true" >> "$GITHUB_OUTPUT"
           else
             echo "release=false" >> "$GITHUB_OUTPUT"
@@ -98,6 +99,10 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "AniList Sync v$VERSION" \
             --generate-notes
+
+      - name: Publish release metadata to main
+        if: steps.changes.outputs.release == 'true'
+        run: bash scripts/publish-release-metadata.sh dist/Info.json
 
       - name: Mirror packaged plugin to master
         if: steps.changes.outputs.release == 'true'
