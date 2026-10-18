@@ -1,0 +1,29 @@
+{
+  "name": "AniList Sync",
+  "identifier": "crown.gridness.iina.anilist-sync",
+  "version": "1.0.2",
+  "description": "Automatically sync watched anime from IINA to AniList.",
+  "author": {
+    "name": "Gridness"
+  },
+  "entry": "src/index.js",
+  "globalEntry": "src/global.js",
+  "ghRepo": "gridness/anilist-sync",
+  "ghVersion": 1000002,
+  "permissions": [
+    "network-request",
+    "show-alert",
+    "show-osd"
+  ],
+  "allowedDomains": [
+    "graphql.anilist.co"
+  ],
+  "sidebarTab": {
+    "name": "AniList Sync"
+  },
+  "preferenceDefaults": {
+    "anilistClientId": "46107",
+    "runtimeState": "",
+    "state": ""
+  }
+}
