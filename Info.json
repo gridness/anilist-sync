@@ -10,8 +10,14 @@
   "globalEntry": "src/global.js",
   "ghRepo": "gridness/anilist-sync",
   "ghVersion": 1000002,
-  "permissions": ["network-request", "show-alert", "show-osd"],
-  "allowedDomains": ["graphql.anilist.co"],
+  "permissions": [
+    "network-request",
+    "show-alert",
+    "show-osd"
+  ],
+  "allowedDomains": [
+    "graphql.anilist.co"
+  ],
   "sidebarTab": {
     "name": "AniList Sync"
   },
